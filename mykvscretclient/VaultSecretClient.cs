@@ -28,7 +28,6 @@ namespace KeyVaultSecretClient
 
         public string GetSecret(string key)
         {
-            this.ManageSecretClient();
             var client = this.GetSecretClient();
             if (client != null)
             {
@@ -44,7 +43,6 @@ namespace KeyVaultSecretClient
 
         public async Task<string> GetSecretAsync(string key)
         {
-            this.ManageSecretClient();
             var client = this.GetSecretClient();
             if (client != null)
             {
@@ -81,23 +79,23 @@ namespace KeyVaultSecretClient
         {
             lock (this.locker)
             {
-                return this.secretClient;
-            }
-        }
-
-        private void ManageSecretClient()
-        {
-            lock (this.locker)
-            {
                 if (this.secretClient != null)
                 {
-                    return;
+                    return this.secretClient;
+                }
+
+                if (string.IsNullOrWhiteSpace(this.config.ClientId) ||
+                    string.IsNullOrWhiteSpace(this.config.TenantId) ||
+                    string.IsNullOrWhiteSpace(this.config.KeyVaultUri) ||
+                    string.IsNullOrWhiteSpace(this.config.CertificateThumbprint))
+                {
+                    throw new ArgumentException("Config Values not set.");
                 }
 
                 var cert = GetCertificate(this.config.CertificateThumbprint);
                 if (cert == null)
                 {
-                    return;
+                    throw new Exception("Certificate Not Found.");
                 }
 
                 var clientCertificateCredential = new ClientCertificateCredential(
@@ -105,9 +103,9 @@ namespace KeyVaultSecretClient
                     this.config.ClientId,
                     cert);
                 this.secretClient = new SecretClient(new Uri(this.config.KeyVaultUri), clientCertificateCredential);
+                return this.secretClient;
             }
         }
-
 
         private static X509Certificate2 FindByLocation(string thumbprint, StoreLocation location)
         {
